@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PeoplePulse HR Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6fb; --card:#ffffff; --ink:#161a2b; --sub:#5b6178; --border:#e5e8f0;
+  --accent:#5b5ff0; --accent2:#00b3a4; --danger:#e0446c; --warn:#f2a541; --good:#2fb673;
+  --shadow:0 1px 3px rgba(20,20,40,.06),0 8px 24px rgba(20,20,40,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1220;--card:#171b2e;--ink:#eef0fb;--sub:#9297b3;--border:#2a2f47;
+    --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1220;--card:#171b2e;--ink:#eef0fb;--sub:#9297b3;--border:#2a2f47;
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+header{
+  padding:20px 24px 14px;border-bottom:1px solid var(--border);
+  position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;
+}
+header h1{margin:0;font-size:1.4rem;font-weight:800;letter-spacing:-.02em;}
+header p{margin:4px 0 0;color:var(--sub);font-size:.88rem;}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;}
+nav button{
+  border:1px solid var(--border);background:var(--card);color:var(--sub);
+  padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:600;cursor:pointer;
+  transition:.15s;
+}
+nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 60px;}
+.tab{display:none;}
+.tab.active{display:block;animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);}
+.kpi .lbl{font-size:.72rem;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+.kpi .val{font-size:1.5rem;font-weight:800;margin-top:4px;}
+.kpi .tag{font-size:.72rem;margin-top:3px;font-weight:600;}
+.good{color:var(--good);} .warn{color:var(--warn);} .bad{color:var(--danger);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);margin-bottom:16px;}
+.card h3{margin:0 0 2px;font-size:.98rem;font-weight:750;}
+.card .sub{font-size:.78rem;color:var(--sub);margin-bottom:10px;}
+.chartwrap{position:relative;height:230px;}
+.insight{
+  background:linear-gradient(135deg,rgba(91,95,240,.08),rgba(0,179,164,.06));
+  border:1px solid var(--border);border-left:4px solid var(--accent);
+  border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:.85rem;line-height:1.55;
+}
+.insight b{color:var(--accent);}
+.insight.risk{border-left-color:var(--danger);}
+.insight.risk b{color:var(--danger);}
+ul.actions{margin:6px 0 0;padding-left:18px;}
+ul.actions li{margin-bottom:4px;font-size:.85rem;}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:700;background:var(--danger);color:#fff;margin-left:8px;}
+table{width:100%;border-collapse:collapse;font-size:.83rem;}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);}
+th{color:var(--sub);font-weight:700;font-size:.72rem;text-transform:uppercase;}
+tr:hover td{background:rgba(91,95,240,.05);}
+.tblwrap{overflow-x:auto;}
+footer{text-align:center;color:var(--sub);font-size:.75rem;padding:20px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧭 PeoplePulse — HR Analytics Dashboard</h1>
+  <p>5,000 employees · Workforce health, attrition drivers &amp; actionable insights</p>
+  <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+<footer>Built from cleaned_hr_data.csv · All figures computed directly from the dataset</footer>
+
+<script>
+const D = {"total_emp": 5000, "active_emp": 4436, "attrition_rate": 11.3, "avg_salary": 730416, "avg_tenure": 2.6, "avg_engagement": 98.3, "avg_satisfaction": 3.3, "high_risk_count": 75, "overtime_pct": 30.7, "avg_perf": 3.23, "promo_pct": 25.7, "dept": [{"Department": "Operations", "headcount": 900, "attrition": 14.4, "avg_sal": 736809.3}, {"Department": "Sales", "headcount": 950, "attrition": 13.2, "avg_sal": 738011.4}, {"Department": "Customer Support", "headcount": 400, "attrition": 13.0, "avg_sal": 709770.0}, {"Department": "Administration", "headcount": 75, "attrition": 10.7, "avg_sal": 767776.0}, {"Department": "HR", "headcount": 350, "attrition": 9.7, "avg_sal": 697032.0}, {"Department": "IT", "headcount": 1150, "attrition": 9.7, "avg_sal": 731045.2}, {"Department": "Finance", "headcount": 600, "attrition": 9.3, "avg_sal": 742306.0}, {"Department": "Marketing", "headcount": 350, "attrition": 9.1, "avg_sal": 721412.6}, {"Department": "Procurement", "headcount": 150, "attrition": 7.3, "avg_sal": 741312.0}, {"Department": "Legal", "headcount": 75, "attrition": 6.7, "avg_sal": 701520.0}], "risk": [{"Risk_Segment": "High", "count": 75, "attrition": 58.7}, {"Risk_Segment": "Low", "count": 3211, "attrition": 6.4}, {"Risk_Segment": "Medium", "count": 1714, "attrition": 18.3}], "overtime": [{"Overtime": "No", "count": 3463, "attrition": 7.9}, {"Overtime": "Yes", "count": 1537, "attrition": 18.9}], "satisfaction": [{"Satisfaction_Category": "High", "count": 2286, "attrition": 7.9}, {"Satisfaction_Category": "Low", "count": 1249, "attrition": 21.5}, {"Satisfaction_Category": "Medium", "count": 1465, "attrition": 7.8}], "tenure": [{"Tenure_Group": "1\u20132 Years", "count": 957, "attrition": 11.9}, {"Tenure_Group": "2\u20135 Years", "count": 2538, "attrition": 5.0}, {"Tenure_Group": "5\u201310 Years", "count": 400, "attrition": 0.5}, {"Tenure_Group": "<1 Year", "count": 1105, "attrition": 29.1}], "age": [{"Age_Group": "26\u201335", "count": 1196, "attrition": 10.0}, {"Age_Group": "36\u201345", "count": 1232, "attrition": 11.9}, {"Age_Group": "46\u201355", "count": 1315, "attrition": 11.0}, {"Age_Group": "56+", "count": 618, "attrition": 12.9}, {"Age_Group": "<25", "count": 639, "attrition": 11.6}], "salary_band": [{"Salary_Band": "< \u20b930K", "count": 692, "attrition": 13.0}, {"Salary_Band": "\u20b9100K\u2013\u20b9150K", "count": 445, "attrition": 10.1}, {"Salary_Band": "\u20b9150K\u2013\u20b9200K", "count": 138, "attrition": 9.4}, {"Salary_Band": "\u20b9200K+", "count": 44, "attrition": 11.4}, {"Salary_Band": "\u20b930K\u2013\u20b950K", "count": 1853, "attrition": 11.3}, {"Salary_Band": "\u20b950K\u2013\u20b975K", "count": 1235, "attrition": 11.3}, {"Salary_Band": "\u20b975K\u2013\u20b9100K", "count": 593, "attrition": 10.6}], "work_mode": [{"Work_Mode": "Hybrid", "count": 2283, "attrition": 10.1}, {"Work_Mode": "On-site", "count": 1751, "attrition": 12.4}, {"Work_Mode": "Remote", "count": 966, "attrition": 12.1}], "gender": [{"Gender": "Female", "count": 2571, "attrition": 12.2, "avg_sal": 728212.8}, {"Gender": "Male", "count": 2429, "attrition": 10.3, "avg_sal": 732749.0}], "performance": [{"Performance_Category": "High", "count": 1968, "attrition": 11.0}, {"Performance_Category": "Low", "count": 1054, "attrition": 12.0}, {"Performance_Category": "Medium", "count": 1978, "attrition": 11.2}], "promotion": [{"Promotion_Last_5Yrs": "No", "count": 3716, "attrition": 12.8}, {"Promotion_Last_5Yrs": "Yes", "count": 1284, "attrition": 7.0}], "exit_reasons": [{"reason": "Better Opportunity", "count": 142}, {"reason": "Career Growth", "count": 96}, {"reason": "Compensation", "count": 93}, {"reason": "Work-Life Balance", "count": 81}, {"reason": "Manager/Leadership", "count": 48}, {"reason": "Personal Reasons", "count": 30}, {"reason": "Relocation", "count": 28}, {"reason": "Work Environment", "count": 26}, {"reason": "Higher Education", "count": 20}], "exit_type": [{"type": "Voluntary", "count": 488}, {"type": "Involuntary", "count": 76}], "job_role": [{"Job_Role": "Supply Chain Analyst", "count": 175, "attrition": 16.6}, {"Job_Role": "Sales Executive", "count": 170, "attrition": 10.6}, {"Job_Role": "Business Development Executive", "count": 163, "attrition": 16.0}, {"Job_Role": "Sales Manager", "count": 160, "attrition": 16.9}, {"Job_Role": "Relationship Manager", "count": 159, "attrition": 10.7}, {"Job_Role": "Account Manager", "count": 159, "attrition": 13.2}, {"Job_Role": "Operations Executive", "count": 154, "attrition": 13.0}, {"Job_Role": "DevOps Engineer", "count": 153, "attrition": 13.1}, {"Job_Role": "Process Associate", "count": 150, "attrition": 16.0}, {"Job_Role": "IT Support Specialist", "count": 149, "attrition": 9.4}], "engagement": [{"Engagement_Bucket": "41-60", "count": 8, "attrition": 62.5}, {"Engagement_Bucket": "61-80", "count": 118, "attrition": 23.7}, {"Engagement_Bucket": "81-100", "count": 4874, "attrition": 10.9}], "promo_gap": [{"Promo_Gap_Bucket": "0-1yr", "count": 317, "attrition": 7.9}, {"Promo_Gap_Bucket": "1-2yr", "count": 397, "attrition": 6.3}, {"Promo_Gap_Bucket": "2-4yr", "count": 2488, "attrition": 10.9}, {"Promo_Gap_Bucket": "4+yr", "count": 1798, "attrition": 13.5}], "location": [{"Location": "Nashik", "count": 456, "attrition": 12.3}, {"Location": "Jaipur", "count": 450, "attrition": 8.9}, {"Location": "Gurugram", "count": 447, "attrition": 12.3}, {"Location": "Noida", "count": 431, "attrition": 11.1}, {"Location": "Kolkata", "count": 425, "attrition": 10.4}, {"Location": "Pune", "count": 414, "attrition": 13.0}, {"Location": "Ahmedabad", "count": 409, "attrition": 12.7}, {"Location": "Bengaluru", "count": 406, "attrition": 9.9}, {"Location": "Delhi NCR", "count": 395, "attrition": 12.7}, {"Location": "Mumbai", "count": 393, "attrition": 11.2}, {"Location": "Chennai", "count": 392, "attrition": 11.5}, {"Location": "Hyderabad", "count": 382, "attrition": 9.4}], "job_level": [{"Job_Level": "L1", "count": 1302, "attrition": 12.6, "avg_sal": 359367.7}, {"Job_Level": "L2", "count": 1442, "attrition": 10.5, "avg_sal": 537099.9}, {"Job_Level": "L3", "count": 1209, "attrition": 11.1, "avg_sal": 780904.2}, {"Job_Level": "L4", "count": 627, "attrition": 12.6, "avg_sal": 1138838.3}, {"Job_Level": "L5", "count": 321, "attrition": 8.1, "avg_sal": 1629581.3}, {"Job_Level": "L6", "count": 99, "attrition": 9.1, "avg_sal": 2307345.5}], "training": [{"Training_Bucket": "0-10", "count": 517, "attrition": 13.9}, {"Training_Bucket": "11-30", "count": 1797, "attrition": 10.9}, {"Training_Bucket": "31-60", "count": 2686, "attrition": 11.1}], "manager_rel": [{"Relationship_With_Manager": 1, "count": 274, "attrition": 15.7}, {"Relationship_With_Manager": 2, "count": 608, "attrition": 15.8}, {"Relationship_With_Manager": 3, "count": 1379, "attrition": 10.3}, {"Relationship_With_Manager": 4, "count": 1721, "attrition": 10.0}, {"Relationship_With_Manager": 5, "count": 1018, "attrition": 10.9}], "avg_notice": 40.1, "rehire_pct": 86.5, "sal_vs_avg_stay": 1.0, "sal_vs_avg_leave": 0.97, "stress": [{"Stress_Level": 1, "count": 497, "attrition": 7.6}, {"Stress_Level": 2, "count": 1263, "attrition": 7.9}, {"Stress_Level": 3, "count": 1538, "attrition": 8.5}, {"Stress_Level": 4, "count": 1182, "attrition": 14.4}, {"Stress_Level": 5, "count": 520, "attrition": 24.0}]};
+const fmtINR = n => '₹' + (n/100000).toFixed(1) + 'L';
+const colors = {a:'#5b5ff0',b:'#00b3a4',c:'#e0446c',d:'#f2a541',e:'#2fb673',f:'#8b7cf6'};
+const palette = ['#5b5ff0','#00b3a4','#e0446c','#f2a541','#2fb673','#8b7cf6','#e0576b','#3fb8e0','#c96f2b','#7a7fb0'];
+
+function root(){return document.documentElement;}
+function inkColor(){return getComputedStyle(root()).getPropertyValue('--ink').trim();}
+function subColor(){return getComputedStyle(root()).getPropertyValue('--sub').trim();}
+function borderColor(){return getComputedStyle(root()).getPropertyValue('--border').trim();}
+
+Chart.defaults.font.family = "'Segoe UI',system-ui,sans-serif";
+Chart.defaults.color = subColor();
+Chart.defaults.borderColor = borderColor();
+
+const tabs = ['Overview','Attrition Drivers','Compensation','Performance & Growth','Exit Analysis'];
+document.getElementById('nav').innerHTML = tabs.map((t,i)=>`<button class="tabbtn ${i===0?'active':''}" data-i="${i}">${t}</button>`).join('');
+document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabbtn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('tab'+b.dataset.i).classList.add('active');
+});
+
+const main = document.getElementById('main');
+main.innerHTML = `
+<section class="tab active" id="tab0">
+  <div class="kpi-grid">
+    <div class="kpi"><div class="lbl">Total Employees</div><div class="val">${D.total_emp.toLocaleString()}</div><div class="tag">${D.active_emp.toLocaleString()} active</div></div>
+    <div class="kpi"><div class="lbl">Attrition Rate</div><div class="val bad">${D.attrition_rate}%</div><div class="tag warn">Watch: above 10% benchmark</div></div>
+    <div class="kpi"><div class="lbl">Avg Annual Salary</div><div class="val">${fmtINR(D.avg_salary)}</div><div class="tag">across all roles</div></div>
+    <div class="kpi"><div class="lbl">Avg Tenure</div><div class="val">${D.avg_tenure} yrs</div><div class="tag">company-wide</div></div>
+    <div class="kpi"><div class="lbl">High-Risk Employees</div><div class="val bad">${D.high_risk_count}</div><div class="tag">flagged for urgent retention action</div></div>
+    <div class="kpi"><div class="lbl">Overtime Workers</div><div class="val warn">${D.overtime_pct}%</div><div class="tag">of workforce</div></div>
+    <div class="kpi"><div class="lbl">Avg Job Satisfaction</div><div class="val">${D.avg_satisfaction}/5</div><div class="tag">self-reported</div></div>
+    <div class="kpi"><div class="lbl">Promoted (5yr)</div><div class="val">${D.promo_pct}%</div><div class="tag">career mobility</div></div>
+  </div>
+  <div class="insight risk"><b>🚨 Critical finding:</b> High-risk segment employees (${D.risk.find(r=>r.Risk_Segment==='High').count} people) churn at <b>${D.risk.find(r=>r.Risk_Segment==='High').attrition}%</b> vs just ${D.risk.find(r=>r.Risk_Segment==='Low').attrition}% for low-risk — a ${Math.round(D.risk.find(r=>r.Risk_Segment==='High').attrition/D.risk.find(r=>r.Risk_Segment==='Low').attrition)}x gap. Prioritize retention conversations with this group this quarter.</div>
+  <div class="grid2">
+    <div class="card"><h3>Attrition Rate by Department</h3><div class="sub">Sorted highest to lowest risk</div><div class="chartwrap"><canvas id="c_dept"></canvas></div></div>
+    <div class="card"><h3>Risk Segment Breakdown</h3><div class="sub">Headcount vs attrition rate</div><div class="chartwrap"><canvas id="c_risk"></canvas></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Attrition by Tenure Stage</h3><div class="sub">Where employees leave in their journey</div><div class="chartwrap"><canvas id="c_tenure"></canvas></div></div>
+    <div class="card"><h3>Overtime Impact on Attrition</h3><div class="sub">Overworked staff leave far more often</div><div class="chartwrap"><canvas id="c_ot"></canvas></div></div>
+  </div>
+</section>
+
+<section class="tab" id="tab1">
+  <div class="insight"><b>💡 Top 3 attrition drivers:</b> (1) New hires &lt;1yr tenure churn at ${D.tenure.find(t=>t.Tenure_Group==='<1 Year').attrition}% — onboarding gap. (2) Low satisfaction staff leave at ${D.satisfaction.find(s=>s.Satisfaction_Category==='Low').attrition}%. (3) Overtime workers churn nearly 2.4x more than those without.</div>
+  <div class="grid2">
+    <div class="card"><h3>Satisfaction Category vs Attrition</h3><div class="chartwrap"><canvas id="c_sat"></canvas></div></div>
+    <div class="card"><h3>Engagement Score Band vs Attrition</h3><div class="chartwrap"><canvas id="c_eng"></canvas></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Stress Level vs Attrition</h3><div class="chartwrap"><canvas id="c_stress"></canvas></div></div>
+    <div class="card"><h3>Manager Relationship vs Attrition</h3><div class="chartwrap"><canvas id="c_mgr"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Attrition by Age Group</h3><div class="chartwrap"><canvas id="c_age"></canvas></div></div>
+  <div class="card"><h3>Actionable Recommendations</h3>
+    <ul class="actions">
+      <li>Launch a <b>structured 90-day onboarding &amp; mentorship program</b> — first-year attrition (${D.tenure.find(t=>t.Tenure_Group==='<1 Year').attrition}%) is the single largest leak.</li>
+      <li>Set an <b>overtime cap / workload redistribution policy</b> in Operations &amp; Sales, the two highest-attrition departments.</li>
+      <li>Run <b>stay interviews</b> with all "High" risk-segment employees within 30 days.</li>
+      <li>Investigate low-satisfaction pockets via pulse surveys — satisfaction is the strongest predictor of attrition after tenure.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="tab" id="tab2">
+  <div class="kpi-grid">
+    <div class="kpi"><div class="lbl">Avg Salary (Stayed)</div><div class="val">${D.sal_vs_avg_stay}x</div><div class="tag">of dept average</div></div>
+    <div class="kpi"><div class="lbl">Avg Salary (Left)</div><div class="val bad">${D.sal_vs_avg_leave}x</div><div class="tag">of dept average — paid below peers</div></div>
+    <div class="kpi"><div class="lbl">Avg Notice Period</div><div class="val">${D.avg_notice} days</div><div class="tag">for exits</div></div>
+    <div class="kpi"><div class="lbl">Rehire Eligible</div><div class="val good">${D.rehire_pct}%</div><div class="tag">of leavers</div></div>
+  </div>
+  <div class="insight"><b>💰 Pay equity signal:</b> Employees who left earned <b>${D.sal_vs_avg_leave}x</b> their department average vs <b>${D.sal_vs_avg_stay}x</b> for those who stayed — below-market pay is a measurable churn risk, not just a perception issue.</div>
+  <div class="grid2">
+    <div class="card"><h3>Attrition by Salary Band</h3><div class="chartwrap"><canvas id="c_salband"></canvas></div></div>
+    <div class="card"><h3>Attrition by Job Level</h3><div class="sub">Avg salary shown as line</div><div class="chartwrap"><canvas id="c_joblevel"></canvas></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Attrition by Gender</h3><div class="chartwrap"><canvas id="c_gender"></canvas></div></div>
+    <div class="card"><h3>Attrition by Work Mode</h3><div class="chartwrap"><canvas id="c_wm"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Department Snapshot</h3><div class="tblwrap"><table id="tbl_dept"></table></div></div>
+</section>
+
+<section class="tab" id="tab3">
+  <div class="insight"><b>📈 Growth-retention link:</b> Employees ${D.promo_gap.length?('waiting '+D.promo_gap[D.promo_gap.length-1].Promo_Gap_Bucket+' since last promotion churn at '+D.promo_gap[D.promo_gap.length-1].attrition+'%'):''} — stalled career growth is a leading indicator of exit risk, especially combined with high performance.</div>
+  <div class="grid2">
+    <div class="card"><h3>Performance Category vs Attrition</h3><div class="chartwrap"><canvas id="c_perf"></canvas></div></div>
+    <div class="card"><h3>Promotion (5yr) vs Attrition</h3><div class="chartwrap"><canvas id="c_promo"></canvas></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Years Since Promotion vs Attrition</h3><div class="chartwrap"><canvas id="c_promogap"></canvas></div></div>
+    <div class="card"><h3>Training Hours vs Attrition</h3><div class="chartwrap"><canvas id="c_train"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Top 10 Job Roles by Headcount</h3><div class="tblwrap"><table id="tbl_role"></table></div></div>
+</section>
+
+<section class="tab" id="tab4">
+  <div class="kpi-grid">
+    <div class="kpi"><div class="lbl">Total Exits</div><div class="val bad">${D.exit_reasons.reduce((a,r)=>a+r.count,0)}</div><div class="tag">in dataset</div></div>
+    <div class="kpi"><div class="lbl">Top Exit Reason</div><div class="val" style="font-size:1.1rem">${D.exit_reasons[0]?.reason||'—'}</div><div class="tag">${D.exit_reasons[0]?.count||0} cases</div></div>
+    <div class="kpi"><div class="lbl">Voluntary vs Involuntary</div><div class="val" style="font-size:1.1rem">${D.exit_type.map(e=>e.type+': '+e.count).join(' / ')}</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Exit Reasons</h3><div class="chartwrap"><canvas id="c_exitreason"></canvas></div></div>
+    <div class="card"><h3>Exit Type</h3><div class="chartwrap"><canvas id="c_exittype"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Locations by Headcount &amp; Attrition</h3><div class="tblwrap"><table id="tbl_loc"></table></div></div>
+</section>
+`;
+
+function bar(id, labels, data, label, color, extra={}){
+  new Chart(document.getElementById(id), {type:'bar', data:{labels, datasets:[{label, data, backgroundColor:color, borderRadius:6, maxBarThickness:38}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, grid:{color:borderColor()}}, x:{grid:{display:false}}}, ...extra}});
+}
+function doughnut(id, labels, data){
+  new Chart(document.getElementById(id), {type:'doughnut', data:{labels, datasets:[{data, backgroundColor:palette}]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}}}}});
+}
+function line2(id, labels, bars, barLabel, lineData, lineLabel){
+  new Chart(document.getElementById(id), {data:{labels, datasets:[
+    {type:'bar', label:barLabel, data:bars, backgroundColor:colors.a, borderRadius:6, yAxisID:'y'},
+    {type:'line', label:lineLabel, data:lineData, borderColor:colors.c, backgroundColor:colors.c, yAxisID:'y1', tension:.3}
+  ]}, options:{responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true, position:'left'}, y1:{beginAtZero:true, position:'right', grid:{display:false}}}}});
+}
+
+// Overview
+bar('c_dept', D.dept.map(d=>d.Department), D.dept.map(d=>d.attrition), 'Attrition %', colors.c);
+doughnut('c_risk', D.risk.map(r=>r.Risk_Segment+' ('+r.count+')'), D.risk.map(r=>r.attrition));
+bar('c_tenure', D.tenure.map(t=>t.Tenure_Group), D.tenure.map(t=>t.attrition), 'Attrition %', colors.d);
+bar('c_ot', D.overtime.map(o=>o.Overtime), D.overtime.map(o=>o.attrition), 'Attrition %', colors.b);
+
+// Drivers
+bar('c_sat', D.satisfaction.map(s=>s.Satisfaction_Category), D.satisfaction.map(s=>s.attrition), 'Attrition %', colors.c);
+bar('c_eng', D.engagement.map(e=>e.Engagement_Bucket), D.engagement.map(e=>e.attrition), 'Attrition %', colors.a);
+bar('c_stress', D.stress.map(s=>'Level '+s.Stress_Level), D.stress.map(s=>s.attrition), 'Attrition %', colors.d);
+bar('c_mgr', D.manager_rel.map(m=>'Rel '+m.Relationship_With_Manager), D.manager_rel.map(m=>m.attrition), 'Attrition %', colors.e);
+bar('c_age', D.age.map(a=>a.Age_Group), D.age.map(a=>a.attrition), 'Attrition %', colors.f);
+
+// Compensation
+bar('c_salband', D.salary_band.map(s=>s.Salary_Band), D.salary_band.map(s=>s.attrition), 'Attrition %', colors.a);
+line2('c_joblevel', D.job_level.map(j=>j.Job_Level), D.job_level.map(j=>j.attrition), 'Attrition %', D.job_level.map(j=>Math.round(j.avg_sal/1000)), 'Avg Salary (K)');
+doughnut('c_gender', D.gender.map(g=>g.Gender), D.gender.map(g=>g.attrition));
+bar('c_wm', D.work_mode.map(w=>w.Work_Mode), D.work_mode.map(w=>w.attrition), 'Attrition %', colors.b);
+
+let tblDept = '<tr><th>Department</th><th>Headcount</th><th>Attrition %</th><th>Avg Salary</th></tr>' +
+  D.dept.map(d=>`<tr><td>${d.Department}</td><td>${d.headcount}</td><td>${d.attrition}%</td><td>${fmtINR(d.avg_sal)}</td></tr>`).join('');
+document.getElementById('tbl_dept').innerHTML = tblDept;
+
+// Performance & Growth
+bar('c_perf', D.performance.map(p=>p.Performance_Category), D.performance.map(p=>p.attrition), 'Attrition %', colors.c);
+bar('c_promo', D.promotion.map(p=>p.Promotion_Last_5Yrs), D.promotion.map(p=>p.attrition), 'Attrition %', colors.e);
+bar('c_promogap', D.promo_gap.map(p=>p.Promo_Gap_Bucket), D.promo_gap.map(p=>p.attrition), 'Attrition %', colors.d);
+bar('c_train', D.training.map(t=>t.Training_Bucket+' hrs'), D.training.map(t=>t.attrition), 'Attrition %', colors.a);
+
+let tblRole = '<tr><th>Job Role</th><th>Headcount</th><th>Attrition %</th></tr>' +
+  D.job_role.map(r=>`<tr><td>${r.Job_Role}</td><td>${r.count}</td><td>${r.attrition}%</td></tr>`).join('');
+document.getElementById('tbl_role').innerHTML = tblRole;
+
+// Exit analysis
+doughnut('c_exitreason', D.exit_reasons.map(e=>e.reason), D.exit_reasons.map(e=>e.count));
+doughnut('c_exittype', D.exit_type.map(e=>e.type), D.exit_type.map(e=>e.count));
+let tblLoc = '<tr><th>Location</th><th>Headcount</th><th>Attrition %</th></tr>' +
+  D.location.map(l=>`<tr><td>${l.Location}</td><td>${l.count}</td><td>${l.attrition}%</td></tr>`).join('');
+document.getElementById('tbl_loc').innerHTML = tblLoc;
+</script>
+</body>
+</html>
