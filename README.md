@@ -43,4 +43,4 @@ Because this is a zero-dependency, single-file project, getting it running is in
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/PeoplePulse.git
+   git clone https://github.com/darshandale/PeoplePulse.git
